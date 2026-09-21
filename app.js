@@ -106,6 +106,28 @@ async function loadRecords() {
   return rawRecords.map((record) => ({ ...record, date:parseDate(record.date) })).filter((record) => record.date).sort((a,b) => a.date - b.date).map(calculateRecord);
 }
 function points(factor, weight) { return factor == null ? "—" : `${Math.round(factor * weight)}/${weight}`; }
+function explainLatestRecord(record) {
+  const reasons = [];
+  if (record.sleep != null && (record.sleep < 450 || record.sleep > 510)) {
+    reasons.push(`Sleep was ${displayDuration(record.sleep)}, which sits outside the ideal 7h 30m–8h 30m window.`);
+  }
+  if (record.bedtimeMinutes != null && !(record.bedtimeMinutes >= 0 && record.bedtimeMinutes <= 60)) {
+    reasons.push(`Bedtime was ${displayTime(record.bedtimeMinutes)}, outside the preferred night routine window.`);
+  }
+  if (record.wakeMinutes != null && !(record.wakeMinutes >= 480 && record.wakeMinutes <= 540)) {
+    reasons.push(`Wake time was ${displayTime(record.wakeMinutes)}, which was outside the ideal 08:00–09:00 range.`);
+  }
+  if (record.studyMinutes != null && record.studyMinutes < 390) {
+    reasons.push(`Study time was ${displayDuration(record.studyMinutes)}, below the 6h 30m target.`);
+  }
+  if (record.screenMinutes != null && record.screenMinutes > 120) {
+    reasons.push(`Screen time was ${displayDuration(record.screenMinutes)}, so the screen score was 0 because it exceeded the 2-hour limit.`);
+  }
+  if (reasons.length === 0) {
+    reasons.push("This day was well aligned across the key routine goals, so there was no major penalty.");
+  }
+  return reasons;
+}
 function renderBreakdown(record) {
   const labels = [["Sleep duration", "sleep"], ["Bedtime", "bedtime"], ["Wake time", "wake"], ["Study time", "study"], ["Screen time", "screen"]];
   const toneForValue = (value) => {
@@ -120,6 +142,7 @@ function renderBreakdown(record) {
     const tone = toneForValue(value);
     return `<div class="breakdown-row"><span>${label}</span><div class="track"><div class="fill tone-fill-${tone}" style="width:${value == null ? 0 : value * 100}%"></div></div><strong>${points(value, weights[key])}</strong></div>`;
   }).join("");
+  $("score-reasons").innerHTML = explainLatestRecord(record).map((reason) => `<p>${reason}</p>`).join("");
 }
 function rollingAverage(records, index) { const values = records.slice(Math.max(0, index - 6), index + 1).map((record) => record.score).filter(Number.isFinite); return values.length ? values.reduce((a,b) => a + b, 0) / values.length : null; }
 function renderChart(records) {
