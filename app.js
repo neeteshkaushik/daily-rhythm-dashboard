@@ -61,7 +61,13 @@ function calculateRecord(record) {
   const score = complete ? Math.round(Object.entries(weights).reduce((total, [name, weight]) => total + factors[name] * weight, 0)) : null;
   return { ...record, bedtimeMinutes: bedtime, wakeMinutes: wake, sleep, studyMinutes: study, screenMinutes: screen, factors, score };
 }
-function scoreLabel(score) { if (score >= 85) return "Strong routine alignment"; if (score >= 70) return "Mostly on track"; if (score >= 50) return "Mixed day"; return "Routine off target"; }
+function scoreCategory(score) {
+  if (score >= 85) return { label: "Strong routine alignment", tone: "strong" };
+  if (score >= 70) return { label: "Mostly on track", tone: "on-track" };
+  if (score >= 50) return { label: "Mixed day", tone: "mixed" };
+  return { label: "Routine off target", tone: "off-target" };
+}
+function scoreLabel(score) { return scoreCategory(score).label; }
 function normaliseHeader(value) { return String(value || "").trim().toLowerCase().replace(/[^a-z]/g, ""); }
 function parseGviz(text) {
   const start = text.indexOf("{"); const end = text.lastIndexOf("}");
@@ -102,7 +108,18 @@ async function loadRecords() {
 function points(factor, weight) { return factor == null ? "—" : `${Math.round(factor * weight)}/${weight}`; }
 function renderBreakdown(record) {
   const labels = [["Sleep duration", "sleep"], ["Bedtime", "bedtime"], ["Wake time", "wake"], ["Study time", "study"], ["Screen time", "screen"]];
-  $("breakdown").innerHTML = labels.map(([label, key]) => { const value = record.factors[key]; return `<div class="breakdown-row"><span>${label}</span><div class="track"><div class="fill" style="width:${value == null ? 0 : value * 100}%"></div></div><strong>${points(value, weights[key])}</strong></div>`; }).join("");
+  const toneForValue = (value) => {
+    if (value == null) return "neutral";
+    if (value >= 0.75) return "strong";
+    if (value >= 0.55) return "on-track";
+    if (value >= 0.35) return "mixed";
+    return "off-target";
+  };
+  $("breakdown").innerHTML = labels.map(([label, key]) => {
+    const value = record.factors[key];
+    const tone = toneForValue(value);
+    return `<div class="breakdown-row"><span>${label}</span><div class="track"><div class="fill tone-fill-${tone}" style="width:${value == null ? 0 : value * 100}%"></div></div><strong>${points(value, weights[key])}</strong></div>`;
+  }).join("");
 }
 function rollingAverage(records, index) { const values = records.slice(Math.max(0, index - 6), index + 1).map((record) => record.score).filter(Number.isFinite); return values.length ? values.reduce((a,b) => a + b, 0) / values.length : null; }
 function renderChart(records) {
@@ -123,12 +140,16 @@ function renderInsights(records) {
   $("insights").innerHTML = statements.map((text) => `<div class="insight"><span class="insight-mark">•</span><span>${text}</span></div>`).join("");
 }
 function renderTable(records) {
-  $("daily-log").innerHTML = [...records].reverse().map((record) => `<tr><td>${displayDate(record.date)}</td><td class="score-cell">${record.score == null ? "Incomplete" : `${record.score} · ${scoreLabel(record.score)}`}</td><td>${displayDuration(record.sleep)}</td><td>${displayTime(record.bedtimeMinutes)}</td><td>${displayTime(record.wakeMinutes)}</td><td>${displayDuration(record.studyMinutes)}</td><td>${displayDuration(record.screenMinutes)}</td><td class="context" title="${record.context || ""}">${record.context || "—"}</td></tr>`).join("");
+  $("daily-log").innerHTML = [...records].reverse().map((record) => { const category = record.score == null ? null : scoreCategory(record.score); return `<tr><td>${displayDate(record.date)}</td><td class="score-cell${category ? ` tone-${category.tone}` : ""}">${record.score == null ? "Incomplete" : `${record.score} · ${category.label}`}</td><td>${displayDuration(record.sleep)}</td><td>${displayTime(record.bedtimeMinutes)}</td><td>${displayTime(record.wakeMinutes)}</td><td>${displayDuration(record.studyMinutes)}</td><td>${displayDuration(record.screenMinutes)}</td><td class="context" title="${record.context || ""}">${record.context || "—"}</td></tr>`; }).join("");
 }
 function renderDashboard(records) {
   const completed = records.filter((record) => record.score != null); if (!completed.length) throw new Error("No complete daily entries were found yet.");
   const latest = completed.at(-1); const recent = completed.slice(-7); const average = Math.round(recent.reduce((total,record) => total + record.score, 0) / recent.length); const best = completed.reduce((best,record) => record.score > best.score ? record : best);
-  $("latest-score").textContent = latest.score; $("latest-date").textContent = displayDate(latest.date); $("score-label").textContent = scoreLabel(latest.score); $("seven-day-score").textContent = `${average}/100`; $("best-score").textContent = `${best.score}/100`; $("best-score-date").textContent = displayDate(best.date); $("on-track-days").textContent = `${completed.filter((record) => record.score >= 70).length}/${completed.length}`;
+  const latestCategory = scoreCategory(latest.score);
+  $("latest-score").textContent = latest.score; $("latest-date").textContent = displayDate(latest.date); $("score-label").textContent = latestCategory.label; $("score-label").className = `pill tone-${latestCategory.tone}`;
+  $("latest-score").className = `score-value tone-${latestCategory.tone}`;
+  $("latest-score").closest(".score-card").className = `card score-card tone-${latestCategory.tone}`;
+  $("seven-day-score").textContent = `${average}/100`; $("best-score").textContent = `${best.score}/100`; $("best-score-date").textContent = displayDate(best.date); $("on-track-days").textContent = `${completed.filter((record) => record.score >= 70).length}/${completed.length}`;
   renderBreakdown(latest); renderChart(records); renderInsights(records); renderTable(records); $("dashboard").hidden = false; $("status").hidden = true;
 }
 async function refresh() { $("status").hidden = false; $("status").className = "status"; $("status").textContent = "Loading your sheet…"; try { renderDashboard(await loadRecords()); } catch (error) { $("dashboard").hidden = true; $("status").className = "status error"; $("status").textContent = error.message; } }
