@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#102a43" />
+    <title>Daily Rhythm of Flying Officer Raman Bharadwaj</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Personal routine dashboard</p>
+          <h1>Daily Rhythm of Flying Officer Raman Bharadwaj</h1>
+          <p class="lede">A clear view of how each day aligned with your sleep, study, and screen-time goals.</p>
+        </div>
+        <button id="refresh-button" class="button" type="button">Refresh data</button>
+      </header>
+
+      <div id="status" class="status" aria-live="polite">Loading your sheet…</div>
+
+      <section id="dashboard" hidden>
+        <section class="summary-grid" aria-label="Latest day summary">
+          <article class="card score-card">
+            <p class="card-label">Latest Daily Rhythm Score</p>
+            <div class="score-row"><strong id="latest-score">—</strong><span>/100</span></div>
+            <p id="latest-date" class="muted">—</p>
+            <span id="score-label" class="pill">—</span>
+          </article>
+          <article class="card">
+            <p class="card-label">7-day average</p>
+            <strong id="seven-day-score" class="metric">—</strong>
+            <p class="muted">Completed days only</p>
+          </article>
+          <article class="card">
+            <p class="card-label">Best recent score</p>
+            <strong id="best-score" class="metric">—</strong>
+            <p id="best-score-date" class="muted">—</p>
+          </article>
+          <article class="card">
+            <p class="card-label">Days on track</p>
+            <strong id="on-track-days" class="metric">—</strong>
+            <p class="muted">Score of 70 or above</p>
+          </article>
+        </section>
+
+        <section class="panel chart-panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">Score trend</p><h2>Daily score over time</h2></div>
+            <div class="legend"><span class="dot actual"></span>Daily score <span class="line-key"></span>7-day average</div>
+          </div>
+          <div id="trend-chart" class="chart" role="img" aria-label="Daily Rhythm Score trend chart"></div>
+        </section>
+
+        <section class="two-column">
+          <section class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">Latest completed day</p><h2>Score breakdown</h2></div></div>
+            <div id="breakdown" class="breakdown"></div>
+          </section>
+          <section class="panel">
+            <div class="panel-heading"><div><p class="eyebrow">Recent pattern</p><h2>Routine signals</h2></div></div>
+            <div id="insights" class="insights"></div>
+          </section>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading"><div><p class="eyebrow">History</p><h2>Daily log</h2></div></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Score</th><th>Sleep</th><th>Bedtime</th><th>Wake time</th><th>Study</th><th>Screen time</th><th>Daily context</th></tr></thead>
+              <tbody id="daily-log"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="method">
+          <h2>How the score works</h2>
+          <p>Sleep duration (25 points), bedtime (15), wake time (10), study time (30), and screen time (20) contribute to the score. Daily context is always shown for reference and never changes the score.</p>
+        </section>
+      </section>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
