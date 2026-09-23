@@ -41,14 +41,14 @@
           <article class="card">
             <p class="card-label">Days on track</p>
             <strong id="on-track-days" class="metric">—</strong>
-            <p class="muted">Score of 70 or above</p>
+            <p class="muted">Score of 75 or above</p>
           </article>
         </section>
 
         <section class="panel chart-panel">
           <div class="panel-heading">
             <div><p class="eyebrow">Score trend</p><h2>Daily score over time</h2></div>
-            <div class="legend"><span class="dot actual"></span>Daily score <span class="line-key"></span>7-day average</div>
+            <div class="legend"><span class="dot actual"></span>Daily score <span class="line-key"></span>7-day average <span class="threshold-key"></span>90 = good</div>
           </div>
           <div id="trend-chart" class="chart" role="img" aria-label="Daily Rhythm Score trend chart"></div>
         </section>
@@ -73,6 +73,7 @@
               <tbody id="daily-log"></tbody>
             </table>
           </div>
+          <div id="table-pagination" class="table-pagination" aria-label="Daily log pagination"></div>
         </section>
 
         <section class="method">

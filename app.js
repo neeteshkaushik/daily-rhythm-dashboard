@@ -5,6 +5,8 @@ const SOURCE_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?g
 
 const weights = { sleep: 25, bedtime: 15, wake: 10, study: 30, screen: 20 };
 const $ = (id) => document.getElementById(id);
+let tablePage = 1;
+let tablePageSize = 10;
 
 function clamp(number, minimum, maximum) { return Math.min(Math.max(number, minimum), maximum); }
 function parseClock(value) {
@@ -62,8 +64,8 @@ function calculateRecord(record) {
   return { ...record, bedtimeMinutes: bedtime, wakeMinutes: wake, sleep, studyMinutes: study, screenMinutes: screen, factors, score };
 }
 function scoreCategory(score) {
-  if (score >= 85) return { label: "Strong routine alignment", tone: "strong" };
-  if (score >= 70) return { label: "Mostly on track", tone: "on-track" };
+  if (score >= 90) return { label: "Strong routine alignment", tone: "strong" };
+  if (score >= 75) return { label: "Mostly on track", tone: "on-track" };
   if (score >= 50) return { label: "Mixed day", tone: "mixed" };
   return { label: "Routine off target", tone: "off-target" };
 }
@@ -121,7 +123,7 @@ function explainLatestRecord(record) {
     reasons.push(`Study time was ${displayDuration(record.studyMinutes)}, below the 6h 30m target.`);
   }
   if (record.screenMinutes != null && record.screenMinutes > 120) {
-    reasons.push(`Screen time was ${displayDuration(record.screenMinutes)}, so the screen score was 0 because it exceeded the 2-hour limit.`);
+    reasons.push(`Screen time was ${displayDuration(record.screenMinutes)}, so the screen score was ${points(record.factors.screen, weights.screen)} because it exceeded the 2-hour target.`);
   }
   if (reasons.length === 0) {
     reasons.push("This day was well aligned across the key routine goals, so there was no major penalty.");
@@ -151,9 +153,10 @@ function renderChart(records) {
   const grid = [0,25,50,75,100].map((value) => `<line class="grid-line" x1="${left}" x2="${width-right}" y1="${y(value)}" y2="${y(value)}"/><text class="axis" x="4" y="${y(value)+4}">${value}</text>`).join("");
   const path = completed.map((record,index) => `${index ? "L" : "M"}${x(index)},${y(record.score)}`).join(" ");
   const averagePath = completed.map((_,index) => { const average = rollingAverage(completed,index); return `${index ? "L" : "M"}${x(index)},${y(average)}`; }).join(" ");
+  const threshold = `<line class="threshold-line" x1="${left}" x2="${width-right}" y1="${y(90)}" y2="${y(90)}"/><text class="threshold-label" x="${width-right-4}" y="${y(90)-6}" text-anchor="end">90 · good</text>`;
   const pointsSvg = completed.map((record,index) => `<circle class="score-point" cx="${x(index)}" cy="${y(record.score)}" r="4"><title>${displayDate(record.date)}: ${record.score}/100</title></circle>`).join("");
   const labels = completed.map((record,index) => (index === 0 || index === completed.length - 1 || index % Math.ceil(completed.length / 5) === 0) ? `<text class="axis" text-anchor="middle" x="${x(index)}" y="${height-12}">${new Intl.DateTimeFormat("en-GB", {day:"numeric",month:"short"}).format(record.date)}</text>` : "").join("");
-  $("trend-chart").innerHTML = `<svg viewBox="0 0 ${width} ${height}" aria-hidden="true">${grid}<path class="average-line" d="${averagePath}"/><path class="score-line" d="${path}"/>${pointsSvg}${labels}</svg>`;
+  $("trend-chart").innerHTML = `<svg viewBox="0 0 ${width} ${height}" aria-hidden="true">${grid}${threshold}<path class="average-line" d="${averagePath}"/><path class="score-line" d="${path}"/>${pointsSvg}${labels}</svg>`;
 }
 function renderInsights(records) {
   const recent = records.filter((record) => record.score != null).slice(-7); const statements = [];
@@ -163,7 +166,15 @@ function renderInsights(records) {
   $("insights").innerHTML = statements.map((text) => `<div class="insight"><span class="insight-mark">•</span><span>${text}</span></div>`).join("");
 }
 function renderTable(records) {
-  $("daily-log").innerHTML = [...records].reverse().map((record) => { const category = record.score == null ? null : scoreCategory(record.score); return `<tr><td>${displayDate(record.date)}</td><td class="score-cell${category ? ` tone-${category.tone}` : ""}">${record.score == null ? "Incomplete" : `${record.score} · ${category.label}`}</td><td>${displayDuration(record.sleep)}</td><td>${displayTime(record.bedtimeMinutes)}</td><td>${displayTime(record.wakeMinutes)}</td><td>${displayDuration(record.studyMinutes)}</td><td>${displayDuration(record.screenMinutes)}</td><td class="context" title="${record.context || ""}">${record.context || "—"}</td></tr>`; }).join("");
+  const sortedRecords = [...records].reverse();
+  const totalPages = Math.max(1, Math.ceil(sortedRecords.length / tablePageSize));
+  tablePage = Math.min(tablePage, totalPages);
+  const start = (tablePage - 1) * tablePageSize;
+  const pageRecords = sortedRecords.slice(start, start + tablePageSize);
+  $("daily-log").innerHTML = pageRecords.map((record) => { const category = record.score == null ? null : scoreCategory(record.score); return `<tr><td>${displayDate(record.date)}</td><td class="score-cell${category ? ` tone-${category.tone}` : ""}">${record.score == null ? "Incomplete" : `${record.score} · ${category.label}`}</td><td>${displayDuration(record.sleep)}</td><td>${displayTime(record.bedtimeMinutes)}</td><td>${displayTime(record.wakeMinutes)}</td><td>${displayDuration(record.studyMinutes)}</td><td>${displayDuration(record.screenMinutes)}</td><td class="context" title="${record.context || ""}">${record.context || "—"}</td></tr>`; }).join("");
+  $("table-pagination").innerHTML = `<label for="table-page-size">Rows per page</label><select id="table-page-size"><option value="5"${tablePageSize === 5 ? " selected" : ""}>5</option><option value="10"${tablePageSize === 10 ? " selected" : ""}>10</option></select><span>Page ${tablePage} of ${totalPages}</span><button class="page-button" type="button" data-page="${tablePage - 1}"${tablePage === 1 ? " disabled" : ""}>Previous</button><button class="page-button" type="button" data-page="${tablePage + 1}"${tablePage === totalPages ? " disabled" : ""}>Next</button>`;
+  $("table-page-size").addEventListener("change", (event) => { tablePageSize = Number(event.target.value); tablePage = 1; renderTable(records); });
+  $("table-pagination").querySelectorAll("[data-page]").forEach((button) => button.addEventListener("click", () => { tablePage = Number(button.dataset.page); renderTable(records); }));
 }
 function renderDashboard(records) {
   const completed = records.filter((record) => record.score != null); if (!completed.length) throw new Error("No complete daily entries were found yet.");
@@ -172,7 +183,7 @@ function renderDashboard(records) {
   $("latest-score").textContent = latest.score; $("latest-date").textContent = displayDate(latest.date); $("score-label").textContent = latestCategory.label; $("score-label").className = `pill tone-${latestCategory.tone}`;
   $("latest-score").className = `score-value tone-${latestCategory.tone}`;
   $("latest-score").closest(".score-card").className = `card score-card tone-${latestCategory.tone}`;
-  $("seven-day-score").textContent = `${average}/100`; $("best-score").textContent = `${best.score}/100`; $("best-score-date").textContent = displayDate(best.date); $("on-track-days").textContent = `${completed.filter((record) => record.score >= 70).length}/${completed.length}`;
+  $("seven-day-score").textContent = `${average}/100`; $("best-score").textContent = `${best.score}/100`; $("best-score-date").textContent = displayDate(best.date); $("on-track-days").textContent = `${completed.filter((record) => record.score >= 75).length}/${completed.length}`;
   renderBreakdown(latest); renderChart(records); renderInsights(records); renderTable(records); $("dashboard").hidden = false; $("status").hidden = true;
 }
 async function refresh() { $("status").hidden = false; $("status").className = "status"; $("status").textContent = "Loading your sheet…"; try { renderDashboard(await loadRecords()); } catch (error) { $("dashboard").hidden = true; $("status").className = "status error"; $("status").textContent = error.message; } }
