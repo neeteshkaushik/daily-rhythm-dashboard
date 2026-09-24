@@ -7,6 +7,7 @@ const weights = { sleep: 25, bedtime: 15, wake: 10, study: 30, screen: 20 };
 const $ = (id) => document.getElementById(id);
 let tablePage = 1;
 let tablePageSize = 10;
+let heatmapMonth = null;
 
 function clamp(number, minimum, maximum) { return Math.min(Math.max(number, minimum), maximum); }
 function parseClock(value) {
@@ -158,6 +159,37 @@ function renderChart(records) {
   const labels = completed.map((record,index) => (index === 0 || index === completed.length - 1 || index % Math.ceil(completed.length / 5) === 0) ? `<text class="axis" text-anchor="middle" x="${x(index)}" y="${height-12}">${new Intl.DateTimeFormat("en-GB", {day:"numeric",month:"short"}).format(record.date)}</text>` : "").join("");
   $("trend-chart").innerHTML = `<svg viewBox="0 0 ${width} ${height}" aria-hidden="true">${grid}${threshold}<path class="average-line" d="${averagePath}"/><path class="score-line" d="${path}"/>${pointsSvg}${labels}</svg>`;
 }
+function monthKey(date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`; }
+function monthDate(key) { const [year, month] = key.split("-").map(Number); return new Date(year, month - 1, 1); }
+function shiftMonth(key, amount) { const date = monthDate(key); date.setMonth(date.getMonth() + amount); return monthKey(date); }
+function renderHeatmap(records) {
+  const datedRecords = records.filter((record) => record.date);
+  const availableMonths = datedRecords.map((record) => monthKey(record.date));
+  const firstMonth = availableMonths.sort()[0];
+  const lastMonth = availableMonths.sort().at(-1);
+  heatmapMonth = heatmapMonth || lastMonth;
+  if (heatmapMonth < firstMonth) heatmapMonth = firstMonth;
+  if (heatmapMonth > lastMonth) heatmapMonth = lastMonth;
+  const date = monthDate(heatmapMonth);
+  const year = date.getFullYear(); const month = date.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay = new Date(year, month, 1).getDay();
+  const recordByDate = new Map(datedRecords.map((record) => [monthKey(record.date) === heatmapMonth ? record.date.getDate() : null, record]));
+  const cells = Array.from({ length: firstDay + daysInMonth }, (_, index) => {
+    if (index < firstDay) return `<span class="heatmap-empty" aria-hidden="true"></span>`;
+    const day = index - firstDay + 1; const record = recordByDate.get(day);
+    if (!record) return `<span class="heatmap-day heatmap-missing" title="${day} ${date.toLocaleString("en-GB", { month: "long" })}: No entry" aria-label="${day}: No entry"></span>`;
+    const tone = record.score == null ? "incomplete" : scoreCategory(record.score).tone;
+    const label = record.score == null ? "Incomplete" : `${record.score}/100, ${scoreCategory(record.score).label}`;
+    return `<span class="heatmap-day heatmap-${tone}" title="${day} ${date.toLocaleString("en-GB", { month: "long" })}: ${label}" aria-label="${day}: ${label}">${day}</span>`;
+  }).join("");
+  $("heatmap-title").textContent = date.toLocaleString("en-GB", { month: "long", year: "numeric" });
+  $("heatmap-grid").innerHTML = cells;
+  $("heatmap-previous").disabled = heatmapMonth === firstMonth;
+  $("heatmap-next").disabled = heatmapMonth === lastMonth;
+  $("heatmap-previous").onclick = () => { heatmapMonth = shiftMonth(heatmapMonth, -1); renderHeatmap(records); };
+  $("heatmap-next").onclick = () => { heatmapMonth = shiftMonth(heatmapMonth, 1); renderHeatmap(records); };
+}
 function renderInsights(records) {
   const recent = records.filter((record) => record.score != null).slice(-7); const statements = [];
   const screenOver = recent.filter((record) => record.screenMinutes > 120).length; const studyTarget = recent.filter((record) => record.studyMinutes >= 390).length; const sleepTarget = recent.filter((record) => record.sleep >= 450 && record.sleep <= 510).length;
@@ -184,7 +216,7 @@ function renderDashboard(records) {
   $("latest-score").className = `score-value tone-${latestCategory.tone}`;
   $("latest-score").closest(".score-card").className = `card score-card tone-${latestCategory.tone}`;
   $("seven-day-score").textContent = `${average}/100`; $("best-score").textContent = `${best.score}/100`; $("best-score-date").textContent = displayDate(best.date); $("on-track-days").textContent = `${completed.filter((record) => record.score >= 75).length}/${completed.length}`;
-  renderBreakdown(latest); renderChart(records); renderInsights(records); renderTable(records); $("dashboard").hidden = false; $("status").hidden = true;
+  heatmapMonth = monthKey(latest.date); renderBreakdown(latest); renderChart(records); renderHeatmap(records); renderInsights(records); renderTable(records); $("dashboard").hidden = false; $("status").hidden = true;
 }
 async function refresh() { $("status").hidden = false; $("status").className = "status"; $("status").textContent = "Loading your sheet…"; try { renderDashboard(await loadRecords()); } catch (error) { $("dashboard").hidden = true; $("status").className = "status error"; $("status").textContent = error.message; } }
 $("refresh-button").addEventListener("click", refresh); refresh();

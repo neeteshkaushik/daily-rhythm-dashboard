@@ -53,6 +53,16 @@
           <div id="trend-chart" class="chart" role="img" aria-label="Daily Rhythm Score trend chart"></div>
         </section>
 
+        <section class="panel heatmap-panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">Monthly rhythm</p><h2 id="heatmap-title">—</h2></div>
+            <div class="heatmap-nav"><button id="heatmap-previous" class="page-button" type="button" aria-label="Previous month">Previous</button><button id="heatmap-next" class="page-button" type="button" aria-label="Next month">Next</button></div>
+          </div>
+          <div class="heatmap-weekdays" aria-hidden="true"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+          <div id="heatmap-grid" class="heatmap-grid" role="grid" aria-label="Monthly daily score heatmap"></div>
+          <div class="heatmap-legend"><span><i class="heatmap-swatch heatmap-strong"></i>90–100</span><span><i class="heatmap-swatch heatmap-on-track"></i>75–89</span><span><i class="heatmap-swatch heatmap-mixed"></i>50–74</span><span><i class="heatmap-swatch heatmap-off-target"></i>0–49</span><span><i class="heatmap-swatch heatmap-incomplete"></i>Incomplete</span><span><i class="heatmap-swatch heatmap-missing"></i>No entry</span></div>
+        </section>
+
         <section class="two-column">
           <section class="panel">
             <div class="panel-heading"><div><p class="eyebrow">Latest completed day</p><h2>Score breakdown</h2></div></div>
