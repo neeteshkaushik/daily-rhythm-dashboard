@@ -30,7 +30,10 @@
           </article>
           <article class="card">
             <p class="card-label">7-day average</p>
-            <strong id="seven-day-score" class="metric">—</strong>
+            <div class="average-score-row">
+              <strong id="seven-day-score" class="metric">—</strong>
+              <img id="mood-avatar" class="mood-avatar" src="https://www.aqi.in/media/sensor-ranges/aqi-moderate-level.webp" alt="7-day average mood is loading" width="72" height="92" referrerpolicy="no-referrer">
+            </div>
             <p class="muted">Completed days only</p>
           </article>
           <article class="card">
@@ -89,6 +92,12 @@
         <section class="method">
           <h2>How the score works</h2>
           <p>Sleep duration (25 points), bedtime (15), wake time (10), study time (30), and screen time (20) contribute to the score. Daily context is always shown for reference and never changes the score.</p>
+        </section>
+
+        <section class="mood-key" aria-labelledby="mood-key-title">
+          <p class="eyebrow">Score guide</p>
+          <h2 id="mood-key-title">What each mood image means</h2>
+          <div id="mood-legend-grid" class="mood-key-grid"></div>
         </section>
       </section>
     </main>

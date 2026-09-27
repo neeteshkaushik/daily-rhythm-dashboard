@@ -4,6 +4,12 @@ const SHEET_GID = "0";
 const SOURCE_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${SHEET_GID}&tqx=out:json%3BresponseHandler:dailyRhythmSheetCallback`;
 
 const weights = { sleep: 25, bedtime: 15, wake: 10, study: 30, screen: 20 };
+const moodImages = {
+  strong: "https://www.aqi.in/media/sensor-ranges/aqi-good-level.webp",
+  "on-track": "https://www.aqi.in/media/sensor-ranges/aqi-moderate-level.webp",
+  mixed: "https://www.aqi.in/media/sensor-ranges/aqi-poor-level.webp",
+  "off-target": "https://www.aqi.in/media/sensor-ranges/aqi-hazardous-level.webp"
+};
 const $ = (id) => document.getElementById(id);
 let tablePage = 1;
 let tablePageSize = 10;
@@ -69,6 +75,28 @@ function scoreCategory(score) {
   if (score >= 75) return { label: "Mostly on track", tone: "on-track" };
   if (score >= 50) return { label: "Mixed day", tone: "mixed" };
   return { label: "Routine off target", tone: "off-target" };
+}
+function averageTint(score) {
+  const stops = [[0, [255, 231, 225]], [50, [255, 244, 222]], [75, [244, 247, 220]], [100, [224, 245, 235]]];
+  const upperIndex = stops.findIndex(([value]) => value >= score);
+  const lower = stops[Math.max(0, upperIndex - 1)];
+  const upper = stops[upperIndex < 0 ? stops.length - 1 : upperIndex];
+  const progress = upper[0] === lower[0] ? 0 : (score - lower[0]) / (upper[0] - lower[0]);
+  const channels = lower[1].map((channel, index) => Math.round(channel + (upper[1][index] - channel) * progress));
+  return `#${channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+function renderMoodAvatar(score) {
+  const category = scoreCategory(score);
+  const avatar = $("mood-avatar");
+  avatar.src = moodImages[category.tone];
+  avatar.alt = `7-day average ${score}/100: ${category.label}`;
+}
+function renderMoodLegend() {
+  const levels = [[90, "90–100"], [75, "75–89"], [50, "50–74"], [49, "0–49"]];
+  $("mood-legend-grid").innerHTML = levels.map(([score, range]) => {
+    const category = scoreCategory(score);
+    return `<article class="mood-key-item"><img src="${moodImages[category.tone]}" alt="" loading="lazy"><div><strong>${range}</strong><span>${category.label}</span></div></article>`;
+  }).join("");
 }
 function scoreLabel(score) { return scoreCategory(score).label; }
 function normaliseHeader(value) { return String(value || "").trim().toLowerCase().replace(/[^a-z]/g, ""); }
@@ -212,11 +240,13 @@ function renderDashboard(records) {
   const completed = records.filter((record) => record.score != null); if (!completed.length) throw new Error("No complete daily entries were found yet.");
   const latest = completed.at(-1); const recent = completed.slice(-7); const average = Math.round(recent.reduce((total,record) => total + record.score, 0) / recent.length); const best = completed.reduce((best,record) => record.score > best.score ? record : best);
   const latestCategory = scoreCategory(latest.score);
+  document.documentElement.style.setProperty("--score-tint", averageTint(average));
+  renderMoodAvatar(average);
   $("latest-score").textContent = latest.score; $("latest-date").textContent = displayDate(latest.date); $("score-label").textContent = latestCategory.label; $("score-label").className = `pill tone-${latestCategory.tone}`;
   $("latest-score").className = `score-value tone-${latestCategory.tone}`;
   $("latest-score").closest(".score-card").className = `card score-card tone-${latestCategory.tone}`;
   $("seven-day-score").textContent = `${average}/100`; $("best-score").textContent = `${best.score}/100`; $("best-score-date").textContent = displayDate(best.date); $("on-track-days").textContent = `${completed.filter((record) => record.score >= 75).length}/${completed.length}`;
-  heatmapMonth = monthKey(latest.date); renderBreakdown(latest); renderChart(records); renderHeatmap(records); renderInsights(records); renderTable(records); $("dashboard").hidden = false; $("status").hidden = true;
+  heatmapMonth = monthKey(latest.date); renderBreakdown(latest); renderChart(records); renderHeatmap(records); renderInsights(records); renderTable(records); renderMoodLegend(); $("dashboard").hidden = false; $("status").hidden = true;
 }
 async function refresh() { $("status").hidden = false; $("status").className = "status"; $("status").textContent = "Loading your sheet…"; try { renderDashboard(await loadRecords()); } catch (error) { $("dashboard").hidden = true; $("status").className = "status error"; $("status").textContent = error.message; } }
 $("refresh-button").addEventListener("click", refresh); refresh();
