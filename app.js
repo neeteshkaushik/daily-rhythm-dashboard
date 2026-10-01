@@ -240,12 +240,16 @@ function renderDashboard(records) {
   const completed = records.filter((record) => record.score != null); if (!completed.length) throw new Error("No complete daily entries were found yet.");
   const latest = completed.at(-1); const recent = completed.slice(-7); const average = Math.round(recent.reduce((total,record) => total + record.score, 0) / recent.length); const best = completed.reduce((best,record) => record.score > best.score ? record : best);
   const latestCategory = scoreCategory(latest.score);
+  const averageCategory = scoreCategory(average);
   document.documentElement.style.setProperty("--score-tint", averageTint(average));
   renderMoodAvatar(average);
   $("latest-score").textContent = latest.score; $("latest-date").textContent = displayDate(latest.date); $("score-label").textContent = latestCategory.label; $("score-label").className = `pill tone-${latestCategory.tone}`;
   $("latest-score").className = `score-value tone-${latestCategory.tone}`;
   $("latest-score").closest(".score-card").className = `card score-card tone-${latestCategory.tone}`;
-  $("seven-day-score").textContent = `${average}/100`; $("best-score").textContent = `${best.score}/100`; $("best-score-date").textContent = displayDate(best.date); $("on-track-days").textContent = `${completed.filter((record) => record.score >= 75).length}/${completed.length}`;
+  $("seven-day-score").textContent = `${average}/100`; $("seven-day-score").className = `score-value tone-${averageCategory.tone}`;
+  $("average-score-label").textContent = averageCategory.label; $("average-score-label").className = `pill tone-${averageCategory.tone}`;
+  $("seven-day-score").closest(".score-card").className = `card score-card average-score-card tone-${averageCategory.tone}`;
+  $("best-score").textContent = `${best.score}/100`; $("best-score-date").textContent = displayDate(best.date); $("on-track-days").textContent = `${completed.filter((record) => record.score >= 75).length}/${completed.length}`;
   heatmapMonth = monthKey(latest.date); renderBreakdown(latest); renderChart(records); renderHeatmap(records); renderInsights(records); renderTable(records); renderMoodLegend(); $("dashboard").hidden = false; $("status").hidden = true;
 }
 async function refresh() { $("status").hidden = false; $("status").className = "status"; $("status").textContent = "Loading your sheet…"; try { renderDashboard(await loadRecords()); } catch (error) { $("dashboard").hidden = true; $("status").className = "status error"; $("status").textContent = error.message; } }
