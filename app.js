@@ -177,7 +177,10 @@ function renderBreakdown(record) {
 }
 function rollingAverage(records, index) { const values = records.slice(Math.max(0, index - 6), index + 1).map((record) => record.score).filter(Number.isFinite); return values.length ? values.reduce((a,b) => a + b, 0) / values.length : null; }
 function renderChart(records) {
-  const completed = records.filter((record) => record.score != null); const width = 900, height = 285, left = 42, right = 16, top = 18, bottom = 37;
+  const completedRecords = records.filter((record) => record.score != null);
+  const selectedRange = $("trend-range").value;
+  const completed = selectedRange === "all" ? completedRecords : completedRecords.slice(-Number(selectedRange));
+  const width = 900, height = 285, left = 42, right = 16, top = 18, bottom = 37;
   const x = (index) => left + index * ((width - left - right) / Math.max(completed.length - 1, 1)); const y = (score) => top + (100 - score) * ((height - top - bottom) / 100);
   const grid = [0,25,50,75,100].map((value) => `<line class="grid-line" x1="${left}" x2="${width-right}" y1="${y(value)}" y2="${y(value)}"/><text class="axis" x="4" y="${y(value)+4}">${value}</text>`).join("");
   const path = completed.map((record,index) => `${index ? "L" : "M"}${x(index)},${y(record.score)}`).join(" ");
@@ -192,29 +195,35 @@ function monthDate(key) { const [year, month] = key.split("-").map(Number); retu
 function shiftMonth(key, amount) { const date = monthDate(key); date.setMonth(date.getMonth() + amount); return monthKey(date); }
 function renderHeatmap(records) {
   const datedRecords = records.filter((record) => record.date);
-  const availableMonths = datedRecords.map((record) => monthKey(record.date));
-  const firstMonth = availableMonths.sort()[0];
-  const lastMonth = availableMonths.sort().at(-1);
-  heatmapMonth = heatmapMonth || lastMonth;
+  const sortedMonths = datedRecords.map((record) => monthKey(record.date)).sort();
+  const firstMonth = sortedMonths[0];
+  const lastMonth = sortedMonths.at(-1);
+  const windowSize = 3;
+  const latestWindowStart = [firstMonth, shiftMonth(lastMonth, -(windowSize - 1))].sort().at(-1);
+  heatmapMonth = heatmapMonth || latestWindowStart;
   if (heatmapMonth < firstMonth) heatmapMonth = firstMonth;
-  if (heatmapMonth > lastMonth) heatmapMonth = lastMonth;
-  const date = monthDate(heatmapMonth);
-  const year = date.getFullYear(); const month = date.getMonth();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDay = new Date(year, month, 1).getDay();
-  const recordByDate = new Map(datedRecords.map((record) => [monthKey(record.date) === heatmapMonth ? record.date.getDate() : null, record]));
-  const cells = Array.from({ length: firstDay + daysInMonth }, (_, index) => {
-    if (index < firstDay) return `<span class="heatmap-empty" aria-hidden="true"></span>`;
-    const day = index - firstDay + 1; const record = recordByDate.get(day);
-    if (!record) return `<span class="heatmap-day heatmap-missing" title="${day} ${date.toLocaleString("en-GB", { month: "long" })}: No entry" aria-label="${day}: No entry"></span>`;
-    const tone = record.score == null ? "incomplete" : scoreCategory(record.score).tone;
-    const label = record.score == null ? "Incomplete" : `${record.score}/100, ${scoreCategory(record.score).label}`;
-    return `<span class="heatmap-day heatmap-${tone}" title="${day} ${date.toLocaleString("en-GB", { month: "long" })}: ${label}" aria-label="${day}: ${label}">${day}</span>`;
+  if (heatmapMonth > latestWindowStart) heatmapMonth = latestWindowStart;
+  const visibleMonths = Array.from({ length: Math.min(windowSize, (monthDate(lastMonth).getFullYear() - monthDate(heatmapMonth).getFullYear()) * 12 + monthDate(lastMonth).getMonth() - monthDate(heatmapMonth).getMonth() + 1) }, (_, index) => shiftMonth(heatmapMonth, index));
+  const recordsByDate = new Map(datedRecords.map((record) => [`${monthKey(record.date)}-${String(record.date.getDate()).padStart(2, "0")}`, record]));
+  const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  $("heatmap-months").innerHTML = visibleMonths.map((key) => {
+    const date = monthDate(key);
+    const year = date.getFullYear(); const month = date.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDay = new Date(year, month, 1).getDay();
+    const cells = Array.from({ length: firstDay + daysInMonth }, (_, index) => {
+      if (index < firstDay) return `<span class="heatmap-empty" aria-hidden="true"></span>`;
+      const day = index - firstDay + 1;
+      const record = recordsByDate.get(`${key}-${String(day).padStart(2, "0")}`);
+      if (!record) return `<span class="heatmap-day heatmap-missing" title="${day} ${date.toLocaleString("en-GB", { month: "long" })}: No entry" aria-label="${day}: No entry"></span>`;
+      const tone = record.score == null ? "incomplete" : scoreCategory(record.score).tone;
+      const label = record.score == null ? "Incomplete" : `${record.score}/100, ${scoreCategory(record.score).label}`;
+      return `<span class="heatmap-day heatmap-${tone}" title="${day} ${date.toLocaleString("en-GB", { month: "long" })}: ${label}" aria-label="${day}: ${label}">${day}</span>`;
+    }).join("");
+    return `<section class="heatmap-month" aria-label="${date.toLocaleString("en-GB", { month: "long", year: "numeric" })}"><h3>${date.toLocaleString("en-GB", { month: "short", year: "numeric" })}</h3><div class="heatmap-weekdays" aria-hidden="true">${weekdays.map((weekday) => `<span>${weekday}</span>`).join("")}</div><div class="heatmap-grid" role="grid" aria-label="${date.toLocaleString("en-GB", { month: "long", year: "numeric" })} daily score heatmap">${cells}</div></section>`;
   }).join("");
-  $("heatmap-title").textContent = date.toLocaleString("en-GB", { month: "long", year: "numeric" });
-  $("heatmap-grid").innerHTML = cells;
   $("heatmap-previous").disabled = heatmapMonth === firstMonth;
-  $("heatmap-next").disabled = heatmapMonth === lastMonth;
+  $("heatmap-next").disabled = heatmapMonth === latestWindowStart;
   $("heatmap-previous").onclick = () => { heatmapMonth = shiftMonth(heatmapMonth, -1); renderHeatmap(records); };
   $("heatmap-next").onclick = () => { heatmapMonth = shiftMonth(heatmapMonth, 1); renderHeatmap(records); };
 }
@@ -250,7 +259,7 @@ function renderDashboard(records) {
   $("average-score-label").textContent = averageCategory.label; $("average-score-label").className = `pill tone-${averageCategory.tone}`;
   $("seven-day-score").closest(".score-card").className = `card score-card average-score-card tone-${averageCategory.tone}`;
   $("best-score").textContent = `${best.score}/100`; $("best-score-date").textContent = displayDate(best.date); $("on-track-days").textContent = `${completed.filter((record) => record.score >= 75).length}/${completed.length}`;
-  heatmapMonth = monthKey(latest.date); renderBreakdown(latest); renderChart(records); renderHeatmap(records); renderInsights(records); renderTable(records); renderMoodLegend(); $("dashboard").hidden = false; $("status").hidden = true;
+  heatmapMonth = shiftMonth(monthKey(latest.date), -2); renderBreakdown(latest); $("trend-range").onchange = () => renderChart(records); renderChart(records); renderHeatmap(records); renderInsights(records); renderTable(records); renderMoodLegend(); $("dashboard").hidden = false; $("status").hidden = true;
 }
 async function refresh() { $("status").hidden = false; $("status").className = "status"; $("status").textContent = "Loading your sheet…"; try { renderDashboard(await loadRecords()); } catch (error) { $("dashboard").hidden = true; $("status").className = "status error"; $("status").textContent = error.message; } }
 $("refresh-button").addEventListener("click", refresh); refresh();
